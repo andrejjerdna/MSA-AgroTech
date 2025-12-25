@@ -1,0 +1,34 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система мониторинга фермы — Основное решение (C1)
+
+Person(operator, "Оператор фермы", "Получает уведомления, управляет системой")
+Person(zootech, "Зоотехник", "Анализ показаний датчиков")
+Person(onsite, "Оператор по наблюдению за животными", "Получает локальные уведомления на ферме")
+Person(admin, "Администратор системы", "Управляет пользователями, ролями, метриками")
+
+System_Boundary(farm_system, "Система мониторинга и управления фермой") {
+    System(central_system, "Центральный сервер", "Управление, агрегация, API, синхронизация")
+}
+
+System_Ext(agents, "Фермерские агенты с ИИ", "Локальные агенты с видеоаналитикой и ИИ")
+System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, поилки, датчики, фильтры")
+System_Ext(external, "Внешние системы", "ERP, BI, аналитика")
+System_Ext(app, "Мобильное/веб-приложение", "Клиент через API")
+
+Rel(operator, central_system, "Просматривает данные, получает уведомления")
+Rel(central_system, operator, "Отправляет оповещения")
+
+Rel(onsite, agents, "Получает локальные уведомления")
+Rel(zootech, agents, "Отправляет оповещения")
+Rel(agents, equipment, "Управляет и считывает данные")
+Rel(agents, central_system, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(central_system, agents, "Отправляет конфигурации и обновления")
+
+Rel(admin, central_system, "Управление доступом и метриками")
+
+Rel(central_system, app, "Предоставляет API")
+Rel(central_system, external, "Экспортирует базовые метрики")
+
+@enduml
