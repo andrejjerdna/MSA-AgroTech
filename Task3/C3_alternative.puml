@@ -1,0 +1,54 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Фермерский агент с ИИ — Альтернативное решение (C3)
+
+Container_Boundary(agent, "Фермерский агент без ИИ") {
+    Component(local_equipment_adapter, "Equipment Adapter", "C#", "Адаптеры для камер, кормушек, датчиков")
+    Component(local_local_storage, "Local Storage Manager", "C#", "Запись видеофрагментов и метаданных в SQLite")
+    Component(local_notifier, "Local Notifier", "C#", "Отправка SMS/звук при offline")
+    Component(local_sync_service, "Sync Service", "C#", "Синхронизация с центром (HTTPS)")
+    Component(local_ota_client, "OTA Client", "C#", "Приём обновлений от Agent Manager")
+    Component(local_event_detector, "Event Detector", "C#", "Формирование событий аналиьтики датчиков")
+}
+
+Container_Boundary(center, "Центральный узел фермы с ИИ") {
+    Component(equipment_adapter, "Equipment Adapter", "C#", "Адаптеры для камер, кормушек, датчиков")
+    Component(video_processor, "Video Processor", "Python", "Захват видео, предобработка")
+    Component(ai_inference, "AI Inference Engine", "Python + ONNX", "Запуск ИИ-модели: драки, задавливание")
+    Component(event_detector, "Event Detector", "C#", "Формирование событий из ИИ-результатов")
+    Component(local_storage, "Local Storage Manager", "C#", "Запись видеофрагментов и метаданных в SQLite")
+    Component(notifier, "Local Notifier", "C#", "Отправка SMS/звук при offline")
+    Component(sync_service, "Sync Service", "C#", "Синхронизация с центром (HTTPS)")
+    Component(ota_client, "OTA Client", "C#", "Приём обновлений от Agent Manager")
+}
+
+System_Ext(central_gateway, "API Gateway", "REST/gRPC, авторизация")
+System_Ext(mobile, "4G/SMS", "Резернвый канал связи")
+
+ContainerDb(local_agent_store, "Локальная БД", "SQLLite", "Буфер событий")
+ContainerDb(agent_local_agent_store, "Локальная БД", "SQLLite", "Буфер событий")
+
+Rel(equipment_adapter, video_processor, "Кадры")
+Rel(video_processor, ai_inference, "Кадры")
+Rel(ai_inference, event_detector, "Инференс-результаты")
+Rel(event_detector, local_storage, "Сохранить событие и видео")
+Rel(event_detector, notifier, "Тревога")
+Rel(local_storage, sync_service, "Данные для синхронизации")
+Rel(ota_client, central_gateway, "Обновление агента")
+Rel(notifier, mobile, "Тревога, если нет связи")
+Rel(local_storage, local_agent_store, "Сохранение данных и метаданные")
+Rel(sync_service, local_agent_store, "Получаем батч данных для синхронизации")
+Rel(sync_service, central_gateway, "Поток данных на центральный сервер")
+Rel(sync_service, agent_local_agent_store, "Данные")
+
+Rel(local_event_detector, local_local_storage, "Сохранить событие и видео")
+Rel(local_event_detector, local_notifier, "Тревога")
+Rel(local_local_storage, local_sync_service, "Данные для синхронизации")
+Rel(local_ota_client, ota_client, "Обновление агента")
+Rel(local_notifier, mobile, "Тревога, если нет связи")
+Rel(local_local_storage, agent_local_agent_store, "Сохранение данных и метаданные")
+Rel(local_sync_service, equipment_adapter, "Получаем батч данных для синхронизации")
+Rel(local_sync_service, agent_local_agent_store, "Поток данных")
+
+@enduml
