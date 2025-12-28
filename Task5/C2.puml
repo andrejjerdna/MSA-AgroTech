@@ -1,0 +1,74 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система мониторинга фермы — Основное решение (C2)
+
+' Пользователи центральной системы
+Person(operator, "Оператор фермы", "Получает уведомления, управляет системой")
+Person(admin, "Администратор системы", "Управляет пользователями, ролями, метриками")
+Person(onsite, "Оператор по наблюдению за животными", "Получает локальные уведомления на ферме")
+Person(client_devops, "DevOps клиента", "Интеграция через API")
+
+System_Boundary(system, "Платформа мониторинга поголовья") {
+    Container(central_gateway, "API Gateway", "C#", "REST/gRPC, авторизация")
+    Container(datacube, "Сервис аналитики", "C#", "REST/gRPC, авторизация")
+    Container(alert_central, "Сервис уведомлений", "C#", "Агрегация, email/SMS через провайдеров")
+    Container(agent_manager, "Agent Manager", "C#", "Данные пользователей")
+    System_Ext(platform_app, "Мобильное/веб-приложение/десктоп", "Клиент через API")
+    Container(iot_platform, "IoT-платформа", "Существующая платформа")
+    ContainerQueue(kafka, "Шина данных", "Apache Kafka", "Шина событий: обмен видеоаналитикой, оповещениями, телеметрией")
+    Container(user_service, "User Service", "C#", "Управление пользователями, ролями, аутентификация")
+
+    Container(billing_service, "Billing Service", "C#", "Тарифы, подписки, лицензии")
+    Container(usage_collector, "Usage Collector", "C#", "Сбор метрик: фермы, события, API")
+    Container(payment_adapter, "Payment Gateway Adapter", "C#", "Интеграция с ЮKassa, СБП")
+    Container(invoice_gen, "Invoice Generator", "C#", "Генерация PDF-счетов")
+
+    ' Tenant DB Pool — логически одна группа, физически много БД
+    ContainerDb(tenant_db_pool, "Tenant DB Pool", "PostgreSQL", "Отдельная БД на клиента")
+    ContainerDb(analytics_db_pool, "БД для потоковой аналитики", "Clickhouse", "Буфер событий для аналитики")
+    ContainerDb(users_db_pool, "Users DB", "PostgreSQL", "Хранение учётных записей, ролей")
+}
+
+Container_Boundary(ferma, "Ферма") {
+    Container(local_agent, "Фермерский агент с ИИ", "Точка входа для локальных агентов")
+    ContainerDb(local_agent_store, "Локальная БД", "SQLLite", "Буфер событий")
+}
+
+System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, поилки, датчики, фильтры")
+System_Ext(mobile_nofier, "SMS или локальные уведомления", "В случае отсувия интернет соединения")
+System_Ext(external, "Внешние системы", "ERP, BI, аналитика")
+System_Ext(mobile_platform_nofier, "SMS или локальные уведомления", "В случае отсувия интернет соединения")
+System_Ext(dev_portal, "Dev-портал", "dev.agrofarm-saas.ru")
+System_Ext(payment_systems, "Платёжные системы", "ЮKassa, СБП")
+
+Rel(central_gateway, kafka, "Поток данных")
+Rel(agent_manager, tenant_db_pool, "Конфигурации агентов, OTA")
+Rel(central_gateway, agent_manager, "Управление данными пользователей, настройки")
+Rel(central_gateway, user_service, "Аутентификация, управление пользователями")
+Rel(user_service, users_db_pool, "Хранение данных")
+Rel(local_agent, central_gateway, "Данные датчиков и видеоаналитика")
+Rel(operator, platform_app, "Просматривает данные, получает уведомления")
+Rel(admin,platform_app, "Управление доступом и метриками")
+Rel(platform_app, central_gateway, "Просматривает данные, получает уведомления")
+Rel(kafka, iot_platform, "Отправка данных в существующую платформу")
+Rel(datacube, analytics_db_pool, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(equipment, local_agent, "Данные от оборудования")
+Rel(onsite, platform_app, "Локальное оповещение")
+Rel(central_gateway, external, "Экспорт данных")
+Rel(local_agent, local_agent_store, "Буферизация данных (для случая обрыва связи)")
+Rel(local_agent, mobile_nofier, "Уведомления для операторов")
+Rel(datacube, kafka, "Управляет и считывает данные")
+Rel(kafka, alert_central, "Управляет и считывает данные")
+Rel(alert_central, mobile_platform_nofier, "Нотификация в случае отсутствия связи")
+Rel(alert_central, central_gateway, "Нотификация")
+Rel(central_gateway, local_agent, "Команды управления", "HTTPS/REST/GRPC")
+Rel(client_devops, dev_portal, "Получение API-ключей")
+Rel(dev_portal, central_gateway, "Документация → вызовы API")
+Rel(central_gateway, billing_service, "Метрики → биллинг")
+Rel(central_gateway, usage_collector, "События использования")
+Rel(billing_service, payment_adapter, "Интеграция")
+Rel(payment_adapter, payment_systems, "Интеграция")
+Rel(billing_service, invoice_gen, "Генерация счетов")
+
+@enduml
