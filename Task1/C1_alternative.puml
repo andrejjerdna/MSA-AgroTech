@@ -1,57 +1,32 @@
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
-title Система мониторинга фермы — Альтернативное решение (C2)
+title Система мониторинга фермы — Альтернативное решение (C1)
 
-Person(operator, "Оператор фермы", "Получает уведомления, управляет системой")
-Person(zootech, "Зоотехник", "Анализ показаний датчиков и отчётов")
-Person(onsite, "Оператор по наблюдению за животными", "Получает локальные уведомления на ферме")
-Person(admin, "Администратор системы", "Управляет пользователями, ролями, метриками")
+Person(operator, "Оператор фермы", "Просматривает данные, получает уведомления")
+Person(onsite, "Оператор по наблюдению за животными", "Получает локальные тревоги при обрыве связи")
+Person(admin, "Администратор системы", "Управляет пользователями и метриками")
 
-System_Boundary(farm_system, "Система мониторинга и управления фермой") {
-    Container(central_server, "Центральный сервер", "API, агрегация, управление, синхронизация", "Go, PostgreSQL, REST")
-    Container(cloud_ai, "Центральный ИИ-сервис", "Глубокая аналитика: болезни, прогнозы, тренды", "Python, TensorFlow, Kafka")
-    ContainerDb(metrics_db, "База метрик", "Хранение исторических данных и пользовательских метрик", "TimescaleDB")
-}
+System(platform, "Платформа мониторинга поголовья", "Облачная обработка")
+System(agents, "Фермерские агенты без ИИ", "Локальные агенты")
+System(ferma_platform, "Центральный узел фермы", "Агрегация и размещенный ИИ")
 
-Container_Boundary(agent_boundary, "Фермерский агент (на ферме)") {
-    Container(edge_ai, "Лёгкий ИИ-модуль", "Локальная видеоаналитика: драки, задавливание, гибель", "TensorFlow Lite / ONNX Runtime")
-    Container(agent_core, "Ядро агента", "Сбор данных, управление оборудованием, буферизация", "Rust / Python")
-}
-
-System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, поилки, датчики, фильтры")
+System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, датчики, фильтры")
 System_Ext(external, "Внешние системы", "ERP, BI, аналитика")
 System_Ext(app, "Мобильное/веб-приложение", "Клиент через API")
+System_Ext(mobile, "4G/(PTP/PTMP)", "Резернвый канал связи")
+System_Ext(mobile, "PTP/PTMP", "Альтернативный канал связи")
 
-' Взаимодействия пользователей
-Rel(operator, central_server, "Просматривает данные, управляется через API")
-Rel(central_server, operator, "Отправляет уведомления (push/email/SMS)")
+Rel(operator, platform, "Получает данные и уведомления")
+Rel(onsite, platform, "Получает базовые локальные оповещения (без ИИ)")
+Rel(admin, platform, "Управление доступом и метриками")
 
-Rel(zootech, central_server, "Получает аналитику и отчёты")
-Rel(admin, central_server, "Управляет доступом, ролями, метриками")
+Rel(agents, equipment, "Сбор данных, управление (при наличии связи)")
+Rel(platform, app, "Предоставляет API")
+Rel(platform, external, "Экспортирует метрики")
+Rel(ferma_platform, platform, "Экспортирует метрики")
+Rel(agents, mobile, "Экстренные уведомления при разрывах связи")
 
-' Локальные уведомления
-Rel(onsite, agent_core, "Получает локальные оповещения (звук/свет/планшет)")
-
-' Взаимодействие внутри агента
-Rel(agent_core, edge_ai, "Передаёт видеопоток")
-Rel(edge_ai, agent_core, "Отправляет сигналы тревоги")
-
-' Агент ↔ оборудование
-Rel(agent_core, equipment, "Считывает данные, управляет устройствами")
-
-' Агент ↔ центр
-Rel(agent_core, central_server, "Синхронизация (≤10 мин)", "HTTPS / MQTT")
-Rel(central_server, agent_core, "Отправка обновлений и конфигураций")
-
-' Центральный ИИ
-Rel(agent_core, cloud_ai, "Отправка видеофрагментов и событий", "асинхронно")
-Rel(cloud_ai, metrics_db, "Сохраняет результаты анализа")
-Rel(central_server, cloud_ai, "Запрос аналитики")
-Rel(central_server, metrics_db, "Чтение/запись метрик")
-
-' Внешние интеграции
-Rel(central_server, app, "Предоставляет REST/gRPC API")
-Rel(central_server, external, "Экспорт базовых метрик (JSON/CSV)")
+Rel(agents, ferma_platform, "Данные агентов")
 
 @enduml

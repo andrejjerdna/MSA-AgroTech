@@ -1,0 +1,56 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система мониторинга фермы — Основное решение (C2)
+
+Person(operator, "Оператор фермы", "Получает уведомления, управляет системой")
+Person(onsite, "Оператор по наблюдению за животными", "Получает локальные уведомления на ферме")
+Person(admin, "Администратор системы", "Управляет пользователями, ролями, метриками")
+
+System_Boundary(system, "Платформа мониторинга поголовья") {
+    Container(central_api, "API Gateway", "Go", "REST/gRPC, авторизация")
+    Container(settings, "Сервис настроек", "Go", "REST/gRPC, авторизация")
+    Container(datacube, "Сервис аналитики", "Go", "REST/gRPC, авторизация")
+    Container(alert_central, "Central Alert Service", "Node.js", "Агрегация, email/SMS через провайдеров")
+
+    ContainerDb(analitycs_db, "Локальная БД", "Postgres", "Буфер событий")
+    Container(kafka, "Event Bus", "Apache Kafka", "Шина событий: обмен видеоаналитикой, оповещениями, телеметрией")
+
+    Container_Boundary(ferma, "Ферма") {
+        Container(agents, "Фермерский агент", "Локальные агенты")
+        Container(local_ai, "Ai сервис", "Postgres", "Видеофрагменты")
+        Container(alert_local, "Central Alert Service", "Node.js", "Агрегация, email/SMS через провайдеров")
+        ContainerDb(local_store, "Локальная БД", "Postgres", "Буфер событий")
+        ContainerDb(local_video_store, "Локальная БД", "Postgres", "Видеофрагменты")
+    }
+}
+
+System_Ext(external, "Внешние системы", "ERP, BI, аналитика")
+System_Ext(app, "Мобильное/веб-приложение", "Клиент через API")
+System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, поилки, датчики, фильтры")
+
+
+Rel(operator, central_api, "Просматривает данные, получает уведомления")
+
+Rel(onsite, agents, "Получает локальные уведомления")
+Rel(agents, equipment, "Управляет и считывает данные")
+Rel(central_api, agents, "Отправляет конфигурации и обновления")
+
+Rel(admin, central_api, "Управление доступом и метриками")
+
+Rel(central_api, app, "Предоставляет API")
+Rel(central_api, external, "Экспортирует базовые метрики")
+
+Rel(agents, local_store, "Предоставляет API")
+Rel(agents, local_video_store, "Экспортирует базовые метрики")
+Rel(agents, local_ai, "Экспортирует базовые метрики")
+
+Rel(agents, central_api, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(settings, central_api, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(kafka, central_api, "Синхронизация агрегированных данных (≤10 мин)")
+
+Rel(datacube, kafka, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(datacube, analitycs_db, "Синхронизация агрегированных данных (≤10 мин)")
+
+
+@enduml

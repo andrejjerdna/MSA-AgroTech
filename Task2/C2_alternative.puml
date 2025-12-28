@@ -1,0 +1,52 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система мониторинга фермы — Основное решение (C2)
+
+' Пользователи центральной системы
+Person(operator, "Оператор фермы", "Получает уведомления, управляет системой")
+Person(admin, "Администратор системы", "Управляет пользователями, ролями, метриками")
+Person(onsite, "Оператор по наблюдению за животными", "Получает локальные уведомления на ферме")
+
+System_Boundary(system, "Платформа мониторинга поголовья") {
+    Container(central_gateway, "API Gateway", "C#", "REST/gRPC, авторизация")
+    Container(datacube, "Сервис аналитики", "C#", "REST/gRPC, авторизация")
+    Container(alert_central, "Сервис уведомлений", "C#", "Агрегация, email/SMS через провайдеров")
+    Container(platform_app, "Мобильное/веб-приложение/десктоп", "Клиент через API")
+    Container(iot_platform, "IoT-платформа", "Существующая платформа")
+    ContainerDb(analitycs_db, "БД для потоковой аналитики", "Clickhouse", "Буфер событий для аналитики")
+    ContainerQueue(kafka, "Шина данных", "Apache Kafka", "Шина событий: обмен видеоаналитикой, оповещениями, телеметрией")
+}
+
+Container_Boundary(ferma, "Ферма") {
+    Container(local_agent, "Фермерский агент без ИИ", "Точка входа для локальных агентов")
+    Container_Boundary(ferma_platform, "Центральный узел фермы") {
+        Container(local_alert_service, "Сервис синхронизации", "C#", "Агрегация, email/SMS через провайдеров")
+        ContainerDb(local_store, "Локальная БД", "SQLLite", "Буфер событий")
+    }
+}
+
+System_Ext(equipment, "Оборудование фермы", "Камеры, кормушки, поилки, датчики, фильтры")
+System_Ext(mobile_nofier, "SMS или локальные уведомления", "В случае отсувия интернет соединения")
+System_Ext(external, "Внешние системы", "ERP, BI, аналитика")
+System_Ext(mobile_platform_nofier, "SMS или локальные уведомления", "В случае отсувия интернет соединения")
+
+Rel(central_gateway, kafka, "Поток данных")
+Rel(local_alert_service, central_gateway, "Данные датчиков и видеоаналитика")
+Rel(local_agent, local_alert_service, "Данные датчиков и видеоаналитика")
+Rel(operator, platform_app, "Просматривает данные, получает уведомления")
+Rel(admin,platform_app, "Управление доступом и метриками")
+Rel(platform_app, central_gateway, "Просматривает данные, получает уведомления")
+Rel(kafka, iot_platform, "Отправка данных в существующую платформу")
+Rel(datacube, analitycs_db, "Синхронизация агрегированных данных (≤10 мин)")
+Rel(equipment, local_agent, "Данные от оборудования")
+Rel(onsite, platform_app, "Локальное оповещение")
+Rel(central_gateway, external, "Экспорт данных")
+Rel(local_alert_service, local_store, "Буферизация данных (для случая обрыва связи)")
+Rel(local_alert_service, mobile_nofier, "Уведомления для операторов")
+Rel(datacube, kafka, "Управляет и считывает данные")
+Rel(kafka, alert_central, "Управляет и считывает данные")
+Rel(alert_central, mobile_platform_nofier, "Нотификация в случае отсутствия связи")
+Rel(alert_central, central_gateway, "Нотификация")
+
+@enduml
